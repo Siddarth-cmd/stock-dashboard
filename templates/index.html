@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+    <meta name="description" content="StockPulse — AI-powered stock analytics with real-time quotes, technical analysis, portfolio simulator, and peer comparison."/>
+    <title>StockPulse — AI Stock Analytics</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com"/>
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+    <link rel="stylesheet" href="/static/style.css"/>
+</head>
+<body>
+<div class="app-layout">
+    <!-- ── Sidebar ──────────────────────────────────────────── -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="logo-group">
+                <div class="logo-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg></div>
+                <span class="logo-text">StockPulse</span>
+            </div>
+            <span class="logo-tag">AI Analytics Engine</span>
+        </div>
+        <div class="add-ticker-section">
+            <div class="add-ticker-row">
+                <input type="text" id="add-ticker-input" placeholder="Add ticker (e.g. META, NVDA)" autocomplete="off" spellcheck="false"/>
+                <button id="add-ticker-btn" type="button" title="Add to watchlist"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+            </div>
+            <div id="add-ticker-status" class="add-status"></div>
+        </div>
+        <div class="watchlist" id="watchlist"></div>
+        <div class="sidebar-section" id="ai-signals-section">
+            <h4 class="sidebar-section-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2a4 4 0 0 1 4 4c0 1.95-1.4 3.58-3.25 3.93L12 22"/><path d="M12 2a4 4 0 0 0-4 4c0 1.95 1.4 3.58 3.25 3.93"/></svg> AI Signals</h4>
+            <div id="ai-quick-list" class="ai-quick-list"></div>
+        </div>
+        <div class="refresh-control">
+            <label class="toggle-label" for="auto-refresh-toggle">
+                <span class="toggle-text">Auto-refresh</span>
+                <div class="toggle-switch"><input type="checkbox" id="auto-refresh-toggle" checked/><span class="toggle-slider"></span></div>
+            </label>
+            <span class="refresh-countdown" id="refresh-countdown"></span>
+        </div>
+    </aside>
+
+    <!-- ── Main ─────────────────────────────────────────────── -->
+    <main class="main-content">
+        <header class="top-bar">
+            <div class="top-bar-left">
+                <button class="sidebar-toggle" id="sidebar-toggle"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
+                <h1 id="main-title">AAPL</h1>
+                <span id="company-name" class="company-name"></span>
+                <span class="live-badge"><span class="live-dot"></span>LIVE</span>
+            </div>
+            <div class="top-bar-right"><span class="last-updated" id="last-updated">—</span></div>
+        </header>
+
+        <!-- Tab navigation -->
+        <nav class="tab-nav" id="tab-nav">
+            <button class="tab-btn active" data-tab="overview">Overview</button>
+            <button class="tab-btn" data-tab="portfolio">Portfolio Sim</button>
+            <button class="tab-btn" data-tab="peers">Peer Compare</button>
+        </nav>
+
+        <!-- ═══ TAB: Overview ═══ -->
+        <div class="tab-content active" id="tab-overview">
+            <section class="stats-section">
+                <div class="stat-card"><span class="stat-label">Price</span><span class="stat-value" id="s-price">—</span></div>
+                <div class="stat-card"><span class="stat-label">Day Change</span><span class="stat-value" id="s-change">—</span></div>
+                <div class="stat-card"><span class="stat-label">Market Cap</span><span class="stat-value" id="s-mcap">—</span></div>
+                <div class="stat-card"><span class="stat-label">P/E Ratio</span><span class="stat-value" id="s-pe">—</span></div>
+                <div class="stat-card"><span class="stat-label">EPS</span><span class="stat-value" id="s-eps">—</span></div>
+                <div class="stat-card"><span class="stat-label">52W High</span><span class="stat-value" id="s-52h">—</span></div>
+                <div class="stat-card"><span class="stat-label">52W Low</span><span class="stat-value" id="s-52l">—</span></div>
+                <div class="stat-card"><span class="stat-label">Volume</span><span class="stat-value" id="s-vol">—</span></div>
+            </section>
+            <div class="content-grid">
+                <div class="charts-col">
+                    <section class="chart-panel">
+                        <div class="chart-toolbar">
+                            <h2 id="chart-title">Loading…</h2>
+                            <div class="chart-actions">
+                                <button class="chip active" id="compare-toggle">Compare</button>
+                                <span class="chart-period-badge">6 Months</span>
+                            </div>
+                        </div>
+                        <div class="chart-wrapper"><canvas id="stock-chart"></canvas></div>
+                    </section>
+                    <section class="volume-panel">
+                        <h3>Trading Volume</h3>
+                        <div class="volume-chart-wrapper"><canvas id="volume-chart"></canvas></div>
+                    </section>
+                </div>
+                <div class="ai-col">
+                    <section class="ai-rec-card">
+                        <div class="ai-rec-header"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2a4 4 0 0 1 4 4c0 1.95-1.4 3.58-3.25 3.93L12 22"/><path d="M12 2a4 4 0 0 0-4 4c0 1.95 1.4 3.58 3.25 3.93"/></svg><span>AI Recommendation</span></div>
+                        <div class="ai-action-badge" id="ai-action">—</div>
+                        <div class="ai-confidence" id="ai-confidence">Confidence: —</div>
+                        <div class="ai-bars">
+                            <div class="ai-bar-row"><span class="ai-bar-label">Buy</span><div class="ai-bar-track"><div class="ai-bar-fill buy" id="ai-bar-buy"></div></div><span class="ai-bar-val" id="ai-bar-buy-val">0%</span></div>
+                            <div class="ai-bar-row"><span class="ai-bar-label">Hold</span><div class="ai-bar-track"><div class="ai-bar-fill hold" id="ai-bar-hold"></div></div><span class="ai-bar-val" id="ai-bar-hold-val">0%</span></div>
+                            <div class="ai-bar-row"><span class="ai-bar-label">Sell</span><div class="ai-bar-track"><div class="ai-bar-fill sell" id="ai-bar-sell"></div></div><span class="ai-bar-val" id="ai-bar-sell-val">0%</span></div>
+                        </div>
+                        <div class="ai-risk"><span>Risk Level:</span><span id="ai-risk-val" class="ai-risk-badge">—</span></div>
+                    </section>
+                    <section class="ai-indicators">
+                        <h4>Technical Indicators</h4>
+                        <div class="ind-grid">
+                            <div class="ind-item"><span class="ind-label">RSI (14)</span><span class="ind-value" id="ind-rsi">—</span></div>
+                            <div class="ind-item"><span class="ind-label">MACD</span><span class="ind-value" id="ind-macd">—</span></div>
+                            <div class="ind-item"><span class="ind-label">Signal</span><span class="ind-value" id="ind-signal">—</span></div>
+                            <div class="ind-item"><span class="ind-label">Bollinger %</span><span class="ind-value" id="ind-bb">—</span></div>
+                            <div class="ind-item"><span class="ind-label">SMA 20</span><span class="ind-value" id="ind-sma20">—</span></div>
+                            <div class="ind-item"><span class="ind-label">SMA 50</span><span class="ind-value" id="ind-sma50">—</span></div>
+                            <div class="ind-item"><span class="ind-label">Momentum</span><span class="ind-value" id="ind-mom">—</span></div>
+                            <div class="ind-item"><span class="ind-label">Volatility</span><span class="ind-value" id="ind-vol">—</span></div>
+                        </div>
+                        <!-- RSI Gauge -->
+                        <div class="rsi-gauge-wrap"><div class="rsi-gauge-bar"><div class="rsi-zone over-sold"></div><div class="rsi-zone neutral"></div><div class="rsi-zone over-bought"></div><div class="rsi-needle" id="rsi-needle"></div></div><div class="rsi-labels"><span>0</span><span>30</span><span>70</span><span>100</span></div></div>
+                    </section>
+                    <section class="ai-reasons">
+                        <div class="reasons-block buy-reasons" id="buy-reasons-block"><h4>✅ Bullish Signals</h4><ul id="buy-reasons-list"></ul></div>
+                        <div class="reasons-block sell-reasons" id="sell-reasons-block"><h4>⚠️ Bearish Signals</h4><ul id="sell-reasons-list"></ul></div>
+                    </section>
+                    <section class="fundamentals-panel"><h4>Fundamentals</h4><div class="fund-grid" id="fund-grid"></div></section>
+                    <section class="targets-panel"><h4>Analyst Price Targets</h4><div id="targets-wrapper"></div></section>
+                </div>
+            </div>
+        </div>
+
+        <!-- ═══ TAB: Portfolio Simulator ═══ -->
+        <div class="tab-content" id="tab-portfolio">
+            <section class="sim-panel">
+                <h2>📈 Investment Simulator</h2>
+                <p class="sim-desc">See how your investment would have performed over time.</p>
+                <div class="sim-controls">
+                    <div class="sim-field"><label for="sim-ticker">Ticker</label><input type="text" id="sim-ticker" value="AAPL" spellcheck="false"/></div>
+                    <div class="sim-field"><label for="sim-amount">Amount ($)</label><input type="number" id="sim-amount" value="10000" min="100" step="100"/></div>
+                    <div class="sim-field"><label for="sim-months">Period</label>
+                        <select id="sim-months"><option value="1">1 Month</option><option value="3">3 Months</option><option value="6" selected>6 Months</option><option value="12">1 Year</option><option value="24">2 Years</option><option value="60">5 Years</option></select>
+                    </div>
+                    <button class="sim-btn" id="sim-run-btn">Simulate</button>
+                </div>
+                <div class="sim-results" id="sim-results" style="display:none">
+                    <div class="sim-stats">
+                        <div class="sim-stat"><span class="sim-stat-label">Investment</span><span class="sim-stat-value" id="sim-investment">—</span></div>
+                        <div class="sim-stat"><span class="sim-stat-label">Current Value</span><span class="sim-stat-value" id="sim-current-value">—</span></div>
+                        <div class="sim-stat"><span class="sim-stat-label">Profit / Loss</span><span class="sim-stat-value" id="sim-profit">—</span></div>
+                        <div class="sim-stat"><span class="sim-stat-label">Return</span><span class="sim-stat-value" id="sim-return">—</span></div>
+                        <div class="sim-stat"><span class="sim-stat-label">Shares</span><span class="sim-stat-value" id="sim-shares">—</span></div>
+                    </div>
+                    <div class="sim-chart-wrapper"><canvas id="sim-chart"></canvas></div>
+                </div>
+            </section>
+        </div>
+
+        <!-- ═══ TAB: Peer Comparison ═══ -->
+        <div class="tab-content" id="tab-peers">
+            <section class="peers-panel">
+                <h2>🔍 Peer Comparison</h2>
+                <p class="peers-desc">Side-by-side comparison of all watchlist stocks.</p>
+                <button class="sim-btn" id="peers-load-btn">Load Comparison</button>
+                <div class="peers-table-wrap" id="peers-table-wrap"></div>
+            </section>
+        </div>
+
+        <footer class="footer"><p>Data via Yahoo Finance · AI analysis based on RSI, MACD, Bollinger Bands, SMA crossover & momentum · Not financial advice</p></footer>
+    </main>
+</div>
+<div id="toast-container" class="toast-container"></div>
+<script src="/static/script.js"></script>
+</body>
+</html>
