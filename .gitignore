@@ -21,3 +21,5 @@ desktop.ini
 *.egg-info/
 dist/
 build/
+
+.vercel
