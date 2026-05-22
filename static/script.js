@@ -31,7 +31,7 @@ function renderWL(){wlEl.innerHTML="";wl.forEach(function(s){var q=quotes[s]||{}
 
 function renderAIQ(){aqList.innerHTML="";var sk=Object.keys(bSigs).sort(function(a,b){return bSigs[b].confidence-bSigs[a].confidence});sk.forEach(function(s){var x=bSigs[s],cls=x.action==="BUY"?"buy-item":x.action==="SELL"?"sell-item":"hold-item";var e=document.createElement("div");e.className="ai-quick-item "+cls;e.innerHTML="<span>"+s+" — "+x.action+'</span><span class="ai-quick-conf">'+x.confidence+"%</span>";aqList.appendChild(e)})}
 
-function selTicker(s){active=s;mainT.textContent=s;renderWL();fetchHist(s);fetchAI(s);fetchFund(s)}
+function selTicker(s){active=s;mainT.textContent=s;renderWL();fetchHist(s);fetchAI(s);fetchFund(s);fetchNews(s)}
 
 // ══ ADD TICKER — skip validation, directly fetch stock data ══
 async function addTicker(sym){
@@ -79,8 +79,12 @@ function renderMC(){if(mChart){mChart.destroy();mChart=null}var d=hCache[active]
 
 function renderVC(d){if(vChart){vChart.destroy();vChart=null}if(!d.volumes||!d.volumes.length)return;var lb=d.dates.map(function(x){var p=x.split("-");return p[1]+"/"+p[2]});var cl=d.prices.map(function(p,i){return i===0?"rgba(59,130,246,.4)":p>=d.prices[i-1]?"rgba(16,185,129,.5)":"rgba(239,68,68,.5)"});vChart=new Chart(vCanvas.getContext("2d"),{type:"bar",data:{labels:lb,datasets:[{label:"Volume",data:d.volumes,backgroundColor:cl,borderRadius:2,borderSkipped:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:"#1e293b",titleColor:"#f1f5f9",bodyColor:"#cbd5e1",borderColor:"#334155",borderWidth:1,cornerRadius:8,callbacks:{label:function(c){return" Vol: "+fV(c.parsed.y)}}}},scales:{x:{display:false},y:{grid:{color:"rgba(148,163,184,.04)"},ticks:{color:"#64748b",font:{size:8},callback:function(v){return fV(v)}}}},animation:{duration:300}}})}
 
+// ══ News Feed ══
+function timeAgo(ts){if(!ts)return"";var d=typeof ts==="number"?new Date(ts*1000):new Date(ts);var s=Math.floor((Date.now()-d.getTime())/1000);if(s<60)return s+"s ago";if(s<3600)return Math.floor(s/60)+"m ago";if(s<86400)return Math.floor(s/3600)+"h ago";return Math.floor(s/86400)+"d ago"}
+async function fetchNews(sym){var grid=$("news-grid"),label=$("news-ticker-label");if(label)label.textContent=sym;grid.innerHTML='<div class="news-loading">Loading news for '+sym+'…</div>';try{var r=await fetch("/api/news?ticker="+encodeURIComponent(sym));var j=await r.json();if(!j.articles||!j.articles.length){grid.innerHTML='<div class="news-empty">No news available for '+sym+'</div>';return}grid.innerHTML="";j.articles.forEach(function(a){var card=document.createElement("a");card.className="news-card";card.href=a.link||"#";card.target="_blank";card.rel="noopener noreferrer";var imgHtml=a.thumbnail?'<img class="news-thumb" src="'+a.thumbnail+'" alt="" loading="lazy" onerror="this.style.display=\'none\'">' :'<div class="news-thumb-placeholder">📰</div>';card.innerHTML=imgHtml+'<div class="news-body"><div class="news-title">'+a.title+'</div><div class="news-meta"><span class="news-publisher">'+(a.publisher||"News")+'</span><span class="news-time">'+timeAgo(a.time)+'</span></div></div>';grid.appendChild(card)})}catch(e){grid.innerHTML='<div class="news-empty">Failed to load news</div>'}}
+
 // ══ Tabs ══
-document.querySelectorAll(".tab-btn").forEach(function(btn){btn.addEventListener("click",function(){document.querySelectorAll(".tab-btn").forEach(function(b){b.classList.remove("active")});document.querySelectorAll(".tab-content").forEach(function(c){c.classList.remove("active")});btn.classList.add("active");$("tab-"+btn.dataset.tab).classList.add("active")})});
+document.querySelectorAll(".tab-btn").forEach(function(btn){btn.addEventListener("click",function(){document.querySelectorAll(".tab-btn").forEach(function(b){b.classList.remove("active")});document.querySelectorAll(".tab-content").forEach(function(c){c.classList.remove("active")});btn.classList.add("active");$("tab-"+btn.dataset.tab).classList.add("active");if(btn.dataset.tab==="news")fetchNews(active)})});
 
 // ══ Portfolio Simulator ══
 $("sim-run-btn").addEventListener("click",async function(){var btn=this;btn.disabled=true;btn.textContent="Simulating…";var tk=$("sim-ticker").value.trim().toUpperCase()||active;var amt=parseFloat($("sim-amount").value)||10000;var mo=$("sim-months").value;try{var r=await fetch("/api/portfolio_sim?ticker="+encodeURIComponent(tk)+"&amount="+amt+"&months="+mo);var j=await r.json();if(j.error){toast(j.error,"error");btn.disabled=false;btn.textContent="Simulate";return}$("sim-results").style.display="block";$("sim-investment").textContent=fmt(j.investment);$("sim-current-value").textContent=fmt(j.current_value);var pEl=$("sim-profit");pEl.textContent=(j.profit>=0?"+":"")+fmt(j.profit);pEl.className="sim-stat-value "+(j.profit>=0?"positive":"negative");var rEl=$("sim-return");rEl.textContent=(j.return_pct>=0?"+":"")+j.return_pct+"%";rEl.className="sim-stat-value "+(j.return_pct>=0?"positive":"negative");$("sim-shares").textContent=j.shares+" shares";
@@ -100,6 +104,6 @@ autoTog.addEventListener("change",function(){autoTog.checked?startAR():stopAR()}
 compTog.addEventListener("click",togCmp);
 sbTog.addEventListener("click",function(){sb.classList.toggle("open")});
 
-async function init(){await fetchQuotes();await fetchHist(active);fetchAI(active);fetchFund(active);fetchBatch();startAR()}
+async function init(){await fetchQuotes();await fetchHist(active);fetchAI(active);fetchFund(active);fetchNews(active);fetchBatch();startAR()}
 window.addEventListener("load",init);
 })();

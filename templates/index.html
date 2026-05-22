@@ -58,6 +58,7 @@
         <!-- Tab navigation -->
         <nav class="tab-nav" id="tab-nav">
             <button class="tab-btn active" data-tab="overview">Overview</button>
+            <button class="tab-btn" data-tab="news">News Feed</button>
             <button class="tab-btn" data-tab="portfolio">Portfolio Sim</button>
             <button class="tab-btn" data-tab="peers">Peer Compare</button>
         </nav>
@@ -151,6 +152,15 @@
                     </div>
                     <div class="sim-chart-wrapper"><canvas id="sim-chart"></canvas></div>
                 </div>
+            </section>
+        </div>
+
+        <!-- ═══ TAB: News Feed ═══ -->
+        <div class="tab-content" id="tab-news">
+            <section class="news-panel">
+                <h2>📰 Latest News — <span id="news-ticker-label">AAPL</span></h2>
+                <p class="news-desc">Real-time financial news and headlines from Yahoo Finance.</p>
+                <div class="news-grid" id="news-grid"><div class="news-loading">Loading news…</div></div>
             </section>
         </div>
 
