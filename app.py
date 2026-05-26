@@ -307,39 +307,5 @@ def get_peers():
     return jsonify({"peers": results})
 
 
-@app.route("/api/news", methods=["GET"])
-def get_news():
-    """Get latest news for a ticker using yfinance."""
-    sym = request.args.get("ticker", "AAPL").strip().upper()
-    try:
-        t = yf.Ticker(sym)
-        raw = t.news or []
-        articles = []
-        for item in raw[:10]:
-            content = item.get("content", {}) if isinstance(item.get("content"), dict) else {}
-            # yfinance 0.2.x format
-            title = item.get("title") or content.get("title", "")
-            link = item.get("link") or content.get("canonicalUrl", {}).get("url", "")
-            publisher = item.get("publisher") or content.get("provider", {}).get("displayName", "")
-            pub_time = item.get("providerPublishTime") or content.get("pubDate")
-            thumb = ""
-            if item.get("thumbnail"):
-                resolutions = item["thumbnail"].get("resolutions", [])
-                if resolutions:
-                    thumb = resolutions[-1].get("url", "")
-            elif content.get("thumbnail"):
-                resolutions = content["thumbnail"].get("resolutions", [])
-                if resolutions:
-                    thumb = resolutions[-1].get("url", "")
-            if title:
-                articles.append({
-                    "title": title, "link": link, "publisher": publisher,
-                    "time": pub_time, "thumbnail": thumb,
-                })
-        return jsonify({"ticker": sym, "articles": articles})
-    except Exception as e:
-        return jsonify({"ticker": sym, "articles": [], "error": str(e)})
-
-
 if __name__ == "__main__":
     app.run(debug=True, port=5000)
