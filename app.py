@@ -11,6 +11,18 @@ import pandas as pd
 app = Flask(__name__)
 
 
+def get_currency(sym):
+    """Detect currency based on ticker suffix."""
+    s = sym.upper()
+    if s.endswith(".NS") or s.endswith(".BO"):
+        return {"symbol": "\u20b9", "code": "INR", "locale": "en-IN"}
+    if s.endswith(".L") or s.endswith(".IL"):
+        return {"symbol": "\u00a3", "code": "GBP", "locale": "en-GB"}
+    if s.endswith(".TO") or s.endswith(".V"):
+        return {"symbol": "C$", "code": "CAD", "locale": "en-CA"}
+    return {"symbol": "$", "code": "USD", "locale": "en-US"}
+
+
 # ═══════════════════════════════════════════════════════════════════
 #  Technical Analysis
 # ═══════════════════════════════════════════════════════════════════
@@ -176,7 +188,7 @@ def get_stock_data():
     else:
         sma = [None]*len(ca)
 
-    return jsonify({"ticker": ticker, "dates": dates, "prices": prices, "sma": sma, "volumes": volumes})
+    return jsonify({"ticker": ticker, "dates": dates, "prices": prices, "sma": sma, "volumes": volumes, "currency": get_currency(ticker)})
 
 
 @app.route("/api/quote", methods=["GET"])
@@ -194,7 +206,7 @@ def get_quote():
             ch = round(cur - prev, 2)
             cp = round((ch / prev) * 100, 2) if prev else 0.0
             sp = c.round(2).tolist()
-            results[sym] = {"price": cur, "prev_close": prev, "change": ch, "change_pct": cp, "sparkline": sp}
+            results[sym] = {"price": cur, "prev_close": prev, "change": ch, "change_pct": cp, "sparkline": sp, "currency": get_currency(sym)}
         except Exception:
             results[sym] = {"error": "Failed"}
     return jsonify({"quotes": results})
@@ -207,9 +219,11 @@ def get_fundamentals():
         info = yf.Ticker(sym).info or {}
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+    cur = get_currency(sym)
     g = lambda k, fb=None: info.get(k, fb) if info.get(k) is not None else fb
     return jsonify({
         "ticker": sym, "name": g("shortName", g("longName", sym)),
+        "currency": cur,
         "sector": g("sector","—"), "industry": g("industry","—"),
         "market_cap": g("marketCap"), "pe_ratio": g("trailingPE"), "forward_pe": g("forwardPE"),
         "eps": g("trailingEps"), "peg_ratio": g("pegRatio"), "price_to_book": g("priceToBook"),
@@ -278,7 +292,8 @@ def portfolio_sim():
     return jsonify({"ticker": sym, "investment": amount, "months": months,
                     "start_price": round(sp,2), "end_price": round(ep,2),
                     "shares": round(shares,4), "current_value": cv,
-                    "profit": profit, "return_pct": rp, "dates": dates, "portfolio_values": pv})
+                    "profit": profit, "return_pct": rp, "dates": dates, "portfolio_values": pv,
+                    "currency": get_currency(sym)})
 
 
 @app.route("/api/peers", methods=["GET"])
@@ -301,6 +316,7 @@ def get_peers():
                 "dividend_yield": info.get("dividendYield"), "revenue": info.get("totalRevenue"),
                 "profit_margin": info.get("profitMargins"),
                 "52w_high": info.get("fiftyTwoWeekHigh"), "52w_low": info.get("fiftyTwoWeekLow"),
+                "currency": get_currency(sym),
             }
         except Exception:
             results[sym] = {"error": "Failed"}
