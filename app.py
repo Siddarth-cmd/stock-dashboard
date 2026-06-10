@@ -3,11 +3,13 @@ StockPulse Analytics Dashboard — Flask Backend
 Real-time quotes, technical analysis, fundamentals, portfolio simulator, and peer comparison.
 """
 
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, Response
 import yfinance as yf
 import numpy as np
 import pandas as pd
 import time
+import json
+import math
 
 app = Flask(__name__)
 
@@ -20,6 +22,25 @@ def cached(key, ttl, fn):
     val = fn()
     _cache[key] = {"v": val, "t": now}
     return val
+
+def _clean(obj):
+    """Recursively replace NaN/Inf with None for JSON safety."""
+    if isinstance(obj, float) and (math.isnan(obj) or math.isinf(obj)):
+        return None
+    if isinstance(obj, np.floating):
+        v = float(obj)
+        return None if math.isnan(v) or math.isinf(v) else v
+    if isinstance(obj, np.integer):
+        return int(obj)
+    if isinstance(obj, dict):
+        return {k: _clean(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_clean(v) for v in obj]
+    return obj
+
+def safe_json(data, status=200):
+    """Return JSON response with NaN values cleaned out."""
+    return Response(json.dumps(_clean(data)), status=status, mimetype="application/json")
 
 
 def get_currency(sym):
@@ -127,16 +148,21 @@ def generate_ai_recommendation(prices, volumes):
 def _dl_raw(sym, period="6mo"):
     """Robust download — tries yf.download (most reliable), then Ticker.history."""
     try:
-        df = yf.download(sym, period=period, progress=False, timeout=5)
+        df = yf.download(sym, period=period, progress=False, timeout=8)
         if not df.empty:
             if isinstance(df.columns, pd.MultiIndex):
                 df.columns = df.columns.get_level_values(0)
+            # Drop rows where Close is NaN
+            if "Close" in df.columns:
+                df = df.dropna(subset=["Close"])
             return df
     except Exception:
         pass
     try:
         df = yf.Ticker(sym).history(period=period)
         if not df.empty:
+            if "Close" in df.columns:
+                df = df.dropna(subset=["Close"])
             return df
     except Exception:
         pass
@@ -203,7 +229,7 @@ def get_stock_data():
     else:
         sma = [None]*len(ca)
 
-    return jsonify({"ticker": ticker, "dates": dates, "prices": prices, "sma": sma, "volumes": volumes, "currency": get_currency(ticker)})
+    return safe_json({"ticker": ticker, "dates": dates, "prices": prices, "sma": sma, "volumes": volumes, "currency": get_currency(ticker)})
 
 
 @app.route("/api/quote", methods=["GET"])
@@ -224,7 +250,7 @@ def get_quote():
             results[sym] = {"price": cur, "prev_close": prev, "change": ch, "change_pct": cp, "sparkline": sp, "currency": get_currency(sym)}
         except Exception:
             results[sym] = {"error": "Failed"}
-    return jsonify({"quotes": results})
+    return safe_json({"quotes": results})
 
 
 @app.route("/api/fundamentals", methods=["GET"])
@@ -233,10 +259,10 @@ def get_fundamentals():
     try:
         info = yf.Ticker(sym).info or {}
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return safe_json({"error": str(e)}, 500)
     cur = get_currency(sym)
     g = lambda k, fb=None: info.get(k, fb) if info.get(k) is not None else fb
-    return jsonify({
+    return safe_json({
         "ticker": sym, "name": g("shortName", g("longName", sym)),
         "currency": cur,
         "sector": g("sector","—"), "industry": g("industry","—"),
@@ -266,7 +292,7 @@ def get_analysis():
     volumes = df["Volume"].values.astype(float).tolist() if "Volume" in df.columns else []
     rec = generate_ai_recommendation(prices, volumes)
     rec["ticker"] = sym
-    return jsonify(rec)
+    return safe_json(rec)
 
 
 @app.route("/api/batch_analysis", methods=["GET"])
@@ -286,7 +312,7 @@ def batch_analysis():
                             "sell_pct": r["sell_pct"], "hold_pct": r["hold_pct"]}
         except Exception:
             pass
-    return jsonify({"analyses": results})
+    return safe_json({"analyses": results})
 
 
 @app.route("/api/portfolio_sim", methods=["GET"])
@@ -304,7 +330,7 @@ def portfolio_sim():
     profit = round(cv - amount, 2); rp = round((profit / amount) * 100, 2)
     dates = df.index.strftime("%Y-%m-%d").tolist()
     pv = [round(shares * float(p), 2) for p in c.values]
-    return jsonify({"ticker": sym, "investment": amount, "months": months,
+    return safe_json({"ticker": sym, "investment": amount, "months": months,
                     "start_price": round(sp,2), "end_price": round(ep,2),
                     "shares": round(shares,4), "current_value": cv,
                     "profit": profit, "return_pct": rp, "dates": dates, "portfolio_values": pv,
@@ -335,7 +361,7 @@ def get_peers():
             }
         except Exception:
             results[sym] = {"error": "Failed"}
-    return jsonify({"peers": results})
+    return safe_json({"peers": results})
 
 
 if __name__ == "__main__":
