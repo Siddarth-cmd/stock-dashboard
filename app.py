@@ -7,8 +7,19 @@ from flask import Flask, render_template, request, jsonify
 import yfinance as yf
 import numpy as np
 import pandas as pd
+import time
 
 app = Flask(__name__)
+
+# ── Simple in-memory cache for Vercel serverless ──
+_cache = {}
+def cached(key, ttl, fn):
+    now = time.time()
+    if key in _cache and now - _cache[key]["t"] < ttl:
+        return _cache[key]["v"]
+    val = fn()
+    _cache[key] = {"v": val, "t": now}
+    return val
 
 
 def get_currency(sym):
@@ -113,12 +124,11 @@ def generate_ai_recommendation(prices, volumes):
             "indicators": {"rsi": rsi, "macd": macd, "bollinger": bb, "sma_20": sma20, "sma_50": sma50, "momentum_10d": mom}}
 
 
-def _dl(sym, period="6mo"):
+def _dl_raw(sym, period="6mo"):
     """Robust download — tries yf.download (most reliable), then Ticker.history."""
     try:
-        df = yf.download(sym, period=period, progress=False, timeout=10)
+        df = yf.download(sym, period=period, progress=False, timeout=5)
         if not df.empty:
-            # Flatten multi-level columns if present
             if isinstance(df.columns, pd.MultiIndex):
                 df.columns = df.columns.get_level_values(0)
             return df
@@ -131,6 +141,11 @@ def _dl(sym, period="6mo"):
     except Exception:
         pass
     return pd.DataFrame()
+
+def _dl(sym, period="6mo"):
+    """Cached download — avoids re-fetching within TTL."""
+    ttl = 60 if period in ("1d", "5d") else 120
+    return cached(f"dl:{sym}:{period}", ttl, lambda: _dl_raw(sym, period))
 
 
 # ═══════════════════════════════════════════════════════════════════
